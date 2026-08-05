@@ -6,6 +6,14 @@ pipeline {
         maven 'Maven3'
     }
 
+    environment {
+        APP_NAME = "register-app"
+        DOCKER_USER = "shelly1230897"
+        DOCKER_CREDENTIALS = "dockerhub"
+        IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+
     stages {
 
         stage('Cleanup Workspace') {
@@ -46,6 +54,25 @@ pipeline {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry('', DOCKER_CREDENTIALS) {
+                        dockerImage.push("${IMAGE_TAG}")
+                        dockerImage.push("latest")
+                    }
                 }
             }
         }
