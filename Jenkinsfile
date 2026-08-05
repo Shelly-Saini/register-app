@@ -9,6 +9,8 @@ pipeline {
     environment {
         IMAGE_NAME = "shelly1230897/register-app"
         IMAGE_TAG  = "1.0.0-${BUILD_NUMBER}"
+
+        JENKINS_API_TOKEN = credentials('JENKINS_API_TOKEN')
     }
 
     stages {
@@ -107,7 +109,7 @@ pipeline {
         stage('Trigger CD Pipeline') {
             steps {
                 script {
-                    sh "curl -v -k --user clouduser:110e21d6265fe94537af9b0acca62c675c -X POST -H 'cache-control: no-cache' -H 'content-type: application/x-www-form-urlencoded' --data 'IMAGE_TAG=${IMAGE_TAG}' 'http://ec2-54-146-230-46.compute-1.amazonaws.com:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token'"
+                    sh "curl -v -k --user clouduser:${JENKINS_API_TOKEN} -X POST -H 'cache-control: no-cache' -H 'content-type: application/x-www-form-urlencoded' --data 'IMAGE_TAG=${IMAGE_TAG}' 'http://ec2-54-146-230-46.compute-1.amazonaws.com:8080/job/gitops-register-app-cd/buildWithParameters?token=gitops-token'"
                 }
             }
         }
