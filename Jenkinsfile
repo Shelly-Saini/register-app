@@ -7,14 +7,8 @@ pipeline {
     }
 
     environment {
-        APP_NAME = "register-app"
-        RELEASE = "1.0.0"
-
-        DOCKER_USER = "shelly1230897"
-        DOCKER_PASS = "dockerhub"
-
-        IMAGE_NAME = "${DOCKER_USER}/${APP_NAME}"
-        IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
+        IMAGE_NAME = "shelly1230897/register-app"
+        IMAGE_TAG  = "1.0.0-${BUILD_NUMBER}"
     }
 
     stages {
@@ -64,9 +58,11 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.withRegistry('', DOCKER_PASS) {
-                        dockerImage = docker.build("${IMAGE_NAME}")
-                    }
+                    def dockerImage = docker.build("${IMAGE_NAME}")
+
+                    sh """
+                    docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${IMAGE_TAG}
+                    """
                 }
             }
         }
@@ -74,62 +70,52 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
-                    docker.withRegistry('', DOCKER_PASS) {
-                        dockerImage.push("${IMAGE_TAG}")
-                        dockerImage.push("latest")
+                    docker.withRegistry('', 'dockerhub') {
+
+                        sh """
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${IMAGE_NAME}:latest
+                        """
                     }
                 }
             }
         }
 
-        stage('Install Trivy') {
-            steps {
-                sh '''
-                if ! command -v trivy >/dev/null 2>&1; then
-                    echo "Installing Trivy..."
-
-                    sudo apt-get update
-
-                    sudo apt-get install -y wget gnupg lsb-release apt-transport-https
-
-                    wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | \
-                    sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-
-                    echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb stable main" | \
-                    sudo tee /etc/apt/sources.list.d/trivy.list
-
-                    sudo apt-get update
-
-                    sudo apt-get install -y trivy
-                fi
-
-                trivy --version
-                '''
-            }
-        }
-
         stage('Trivy Scan') {
             steps {
-                script {
-                    sh '''
-                    trivy image \
-                    --no-progress \
-                    --scanners vuln \
-                    ${IMAGE_NAME}:${IMAGE_TAG}
-                    '''
-                }
+                sh """
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  aquasec/trivy:latest \
+                  image \
+                  --no-progress \
+                  --severity HIGH,CRITICAL \
+                  ${IMAGE_NAME}:${IMAGE_TAG}
+                """
             }
         }
 
         stage('Cleanup Artifacts') {
             steps {
                 script {
-                    sh '''
-                    docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true
-                    docker rmi ${IMAGE_NAME}:latest || true
-                    '''
+                    sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true"
+                    sh "docker rmi ${IMAGE_NAME}:latest || true"
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+
+        failure {
+            echo 'Pipeline failed.'
         }
     }
 }
