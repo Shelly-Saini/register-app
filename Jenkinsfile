@@ -10,7 +10,7 @@ pipeline {
         IMAGE_NAME = "shelly1230897/register-app"
         IMAGE_TAG  = "1.0.0-${BUILD_NUMBER}"
 
-        JENKINS_API_TOKEN = credentials('JENKINS_API_TOKEN')
+        JENKINS_API_TOKEN = credentials('JENKINS-API-TOKEN')
     }
 
     stages {
